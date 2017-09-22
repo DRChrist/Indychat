@@ -8,7 +8,16 @@
 module.exports = {
 
   attributes: {
-
+  	name : {
+  		type: 'string',
+  		unique: true
+  	},
+  	
+  	users: {
+  		collection: 'user',
+  		via: 'rooms'
+  	}
+  	
   }
 };
 

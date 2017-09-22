@@ -41,81 +41,15 @@ module.exports = {
 		});
 	},
 
-	// joinRoom: function(req, res) {
-	// 	if(!req.isSocket) {
-	// 		return res.badRequest('Sockets only.');
-	// 	}
-		
-	// 	User.findOne(req.session.userId, function(err, user) {
-	// 		if(err) {
-	// 			console.log('Error :' + err);
-	// 			return res.negotiate(err);
-	// 		}
-	// 		if(!user) {
-	// 			console.log('Session might be terminated.');
-	// 			return res.view('homepage');
-	// 		}
-	// 		var room = req.param('room');
-	// 		var role = foundUser.populate
-	// 		if(room === 'thespace' && user.roles[0].name !== 'buttonclicker') {
-	// 			console.log('You are not a buttonclicker');
-	// 			return res.negotiate(err);
-	// 		}
-	// 		sails.sockets.join(req, room, function(err) {
-	// 			if(err) {
-	// 				console.log('Not joining ' + room);
-	// 				return res.serverError(err);
-	// 			} 
-	// 			return res.ok();
-	// 		});
-	// 	});
-	// },
-
-	// joinRoom: function(req, res) {
-	// 	if(!req.isSocket) {
-	// 		return res.badRequest('Sockets only.');
-	// 	}
-		
-	// 	User.findOne(req.session.userId)
-	// 	.populate('roles')
-	// 	.populate('privileges')
-	// 	.exec(function(err, user) {
-	// 		_.forEach(user.roles, function(role) {
-	// 			Role.findOne(role.id).populate('privileges').exec(function(err, role) {
-	// 				if(err) {
-	// 					console.log('Error :' + err);
-	// 					return res.negotiate(err);
-	// 				}
-	// 				if(!user) {
-	// 					console.log('Session might be terminated.');
-	// 					return res.view('homepage');
-	// 				}
-	// 				var room = req.param('room');
-	// 				if(room === 'thespace' && !user.can('goToSpace')) {
-	// 					console.log('Access denied!');
-	// 					console.log(room);
-	// 					console.log(user.can('goToSpace'));
-	// 					return res.send(401);
-	// 				}
-
-	// 				sails.sockets.join(req, room, function(err) {
-	// 					if(err) {
-	// 						console.log('Not joining ' + room);
-	// 						return res.serverError(err);
-	// 					} 
-	// 					return res.ok();
-	// 				});
-	// 			});
-	// 		});
-	// 	});
-	// },
 
 	joinRoom: function(req, res) {
 		if(!req.isSocket) {
 			return res.badRequest('Sockets only.');
 		}
 		
-		User.findOne(req.session.userId, function(err, user) {
+		User.findOne(req.session.userId)
+		.populate('rooms')
+		.exec(function(err, user) {
 			if(err) {
 				console.log('Error :' + err);
 				return res.negotiate(err);
@@ -124,27 +58,37 @@ module.exports = {
 				console.log('Session might be terminated.');
 				return res.view('homepage');
 			}
-			var room = req.param('room');
-			// if(room === 'thespace' && !user.can('goToSpace')) {
-			// 	console.log(user.can('goToSpace'));
-			// 	console.log('NOPE!');
-			// 	return res.send(401);
-			// }
-			user.can('goToSpace', function(access) {
-				if(!access && room === 'thespace') {
-					console.log('Access denied!');
-					console.log(room + ' ' + access);
+			Room.findOne({name: req.param('room')}).exec(function(err, room) {
+				if(room.name === 'thespace' && !user.can('goToSpace')) {
+					console.log('NOPE!');
 					return res.send(401);
-				} else {
-					sails.sockets.join(req, room, function(err) {
-						if(err) {
-							console.log('Not joining ' + room);
-							return res.serverError(err);
-						} 
-						return res.ok();
-					});
-				}
-			});
+				// }
+				// if(room.name === 'thespace') {
+				// 	user.can('goToSpace', function(access) {
+				// 		if(!access) {
+				// 			console.log('Access denied!');
+				// 			console.log(room.name + ' ' + access);
+				// 			return res.send(401);
+				// 		}
+				// 	});
+					} else {
+						user.rooms.add(room.id);
+						user.save(function(err) {
+							if(err) {
+								return serverError(err);
+							} else {
+									console.log(user.username +  ' added to ' + room.name);
+									sails.sockets.join(req, room.name, function(err) {
+										if(err) {
+											console.log('Not joining ' + room.name);
+											return res.serverError(err);
+										} 
+										return res.ok();
+									});
+								}
+						});
+					}
+				});
 		});
 	},
 

@@ -33,34 +33,121 @@ module.exports = {
       dominant: true
     },
 
-    can: function (testPrivilege, cb) {
-      'use strict';
-      User.findOne(this.id)
-      .populate('roles')
-      .populate('privileges')
-      .exec(function(err, user) {
-        if(err) {
-          console.serverError(err);
-          return cb(err);
-        }
-        _.forEach(user.roles, function(role) {
-          Role.findOne(role.id).populate('privileges').exec(function(err, r) {
-            if(err) {
-              console.serverError(err);
-              return cb(err);
-            }
-            if(_.some(r.privileges, {'privilegeName': testPrivilege})){
-              console.log('You cant handle thruthiness!');
-              return cb(true);
-            }
-          }); 
-        });
-        if(_.some(user.privileges, {'privilegeName': testPrivilege})) {
-          return cb(true);
-        }
-      });
+    rooms: {
+      collection: 'room',
+      via: 'users',
+      dominant: true
     },
 
+    //With a callback
+
+    // can: function (testPrivilege, callback) {
+    //   'use strict';
+    //   User.findOne(this.id)
+    //   .populate('roles')
+    //   .populate('privileges')
+    //   .exec(function(err, user) {
+    //     if(err) {
+    //       console.serverError(err);
+    //       return callback(err);
+    //     }
+    //     async.each(user.roles, function(role, cb) {
+    //       Role.findOne(role.id).populate('privileges').exec(function(err, r) {
+    //         if(err) {
+    //           console.serverError(err);
+    //           return cb(err);
+    //         }
+    //         for(privilege of r.privileges) {
+    //           if (privilege.privilegeName === testPrivilege) {
+    //             access = true;
+    //           }
+    //         }
+    //         console.log('access: '+ access);
+    //         if(access) {
+    //           return cb(access);
+    //         } 
+    //         // else {
+    //         //   console.log('What are we doing down here?');
+    //         //   access = _.some(user.privileges, function(privilegeName) { return privilegeName === testPrivilege; });
+    //         //     return cb(access);
+    //         // }
+    //       }); 
+    //     });
+    //   });
+    // },
+
+    //Trying to use the Async library
+
+    can: function (testPrivilege) {
+      'use strict';
+      var access = false;
+      var userId = this.id;
+      async.waterfall([
+        function(cb) {
+          User.findOne(userId)
+          .populate('roles')
+          .populate('privileges')
+          .exec(function(err, user) {
+            if(err) {
+              console.log('Error finding and populating user');
+              return;
+            }
+            cb(user);
+          });
+        },
+        function(user, cb) {
+          async.parallel([
+            //Loops through roles and privileges in roles
+            function(callback) {
+              for(var role of user.roles) {
+                Role.findOne(role.id).populate('privileges').exec(function (err, r) {
+                  if(err) {
+                    console.log('Error finding and populating role');
+                    return;
+                  }
+                  for(var privilege of r.privileges) {
+                    if(privilege.privilegeName === testPrivilege) {
+                      access = true;
+                      console.log('Found it ' + access);
+                      return access;
+                    }
+                  }
+                });
+              }
+              callback();
+            },
+
+            //Loops through privileges in user
+            function(callback) {
+              for(var privilege of user.privileges) {
+                if(privilege.privilegeName === testPrivilege) {
+                  access = true;
+                  return access;
+                }
+              }
+              callback();
+            }
+            ], function(err) {
+              if(err) {
+                console.log('Error checking for privilegeName');
+                return;
+              }
+                cb();
+            });
+          }
+      ], function(err) {
+        if(err) {
+          console.log('Error in can');
+          return;
+        }
+        return access;
+      });
+      console.log('WOOO, I WIN!');
+    },
+
+
+
+    //Trying to use promises
 
     // can: function (privilegeToTest) {
     //   'use strict';
