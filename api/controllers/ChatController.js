@@ -51,7 +51,6 @@ module.exports = {
 		.populate('rooms')
 		.exec(function(err, user) {
 			if(err) {
-				console.log('Error :' + err);
 				return res.negotiate(err);
 			}
 			if(!user) {
@@ -59,36 +58,21 @@ module.exports = {
 				return res.view('homepage');
 			}
 			Room.findOne({name: req.param('room')}).exec(function(err, room) {
-				if(room.name === 'thespace' && !user.can('goToSpace')) {
-					console.log('NOPE!');
-					return res.send(401);
-				// }
-				// if(room.name === 'thespace') {
-				// 	user.can('goToSpace', function(access) {
-				// 		if(!access) {
-				// 			console.log('Access denied!');
-				// 			console.log(room.name + ' ' + access);
-				// 			return res.send(401);
-				// 		}
-				// 	});
-					} else {
-						user.rooms.add(room.id);
-						user.save(function(err) {
-							if(err) {
-								return serverError(err);
-							} else {
-									console.log(user.username +  ' added to ' + room.name);
-									sails.sockets.join(req, room.name, function(err) {
-										if(err) {
-											console.log('Not joining ' + room.name);
-											return res.serverError(err);
-										} 
-										return res.ok();
-									});
-								}
-						});
+				user.rooms.add(room.id);
+				user.save(function(err) {
+					if(err) {
+						return res.serverError(err);
 					}
+					console.log(user.username +  ' added to ' + room.name);
+					sails.sockets.join(req, room.name, function(err) {
+						if(err) {
+							console.log('Not joining ' + room.name);
+							return res.serverError(err);
+						} 
+						return res.ok();
+					});
 				});
+			});
 		});
 	},
 
@@ -96,13 +80,33 @@ module.exports = {
 		if(!req.isSocket) {
 			return res.badRequest('Sockets only.');
 		}
-		var room = req.param('room');
-		sails.sockets.leave(req, room, function(err) {
+
+		User.findOne(req.session.userId)
+		.exec(function(err, user) {
 			if(err) {
-				console.log('Not leaving ' + room);
-				return res.serverError(err);
+				return res.negotiate(err);
 			}
-			return res.ok();
+			if(!user) {
+				console.log('Session might be terminated');
+				return res.view('homepage');
+			}
+		
+			Room.findOne({name: req.param('room')}).exec(function(err, room) {
+				user.rooms.remove(room.id);
+				user.save(function(err) {
+				if(err) {
+					return res.serverError(err);
+				}
+					console.log(user.username +  ' removed from ' + room.name);
+					sails.sockets.leave(req, room, function(err) {
+						if(err) {
+							console.log('Not leaving ' + room);
+							return res.serverError(err);
+						}
+						return res.ok();
+					});
+				});
+			});
 		});
 	}
 

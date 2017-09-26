@@ -35,7 +35,7 @@ module.exports.policies = {
   ChatController: {
     chatRoom: ['isLoggedIn'],
     sendMessage: ['isLoggedIn'],
-    joinRoom: ['isloggedIn'],
+    joinRoom: ['isloggedIn', 'goToSpace'],
     leaveRoom: []
   }
 

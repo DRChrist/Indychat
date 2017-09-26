@@ -22,6 +22,7 @@
     "machinepack-passwords": "^2.3.0",
     "rc": "1.0.1",
     "sails": "~0.12.13",
+    "sails-auth": "^2.1.3",
     "sails-disk": "~0.10.9"
   },
   "scripts": {
